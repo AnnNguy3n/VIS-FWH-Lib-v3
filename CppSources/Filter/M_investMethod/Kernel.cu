@@ -68,22 +68,25 @@ void _M_investMethod(
 
         // Duyệt qua tất cả công ty trong chu kỳ hiện tại
         for (int i = start; i < end; ++i) {
-            if (weight[i] <= threshold) { // Không vượt ngưỡng
-                symbol_streak[symbol[i]] = 0;
+            const double w = weight[i];
+            const int sym = symbol[i];
+            if (w <= threshold) { // Không vượt ngưỡng
+                symbol_streak[sym] = 0;
                 continue;
             }
 
             any_pass_threshold = true;
-            const int sym = symbol[i];
             const int sym_streak = ++symbol_streak[sym];
 
-            if (!sufficient_liquidity[i]) continue;
+            const int lig = sufficient_liquidity[i];
+            if (!lig) continue;
 
             const double p = profit[i];
 
             // Update cho từng strategy k (tương ứng độ dài streak yêu cầu)
+            #pragma unroll
             for (int k = 0; k < num_applicable_strategy; ++k) {
-                if (sym_streak > min(market_streak, k)) {
+                if (sym_streak > (market_streak < k ? market_streak : k)) {
                     tmp_profit[k] += p;
                     ++invest_count[k];
                 }
@@ -91,6 +94,7 @@ void _M_investMethod(
         }
 
         // Cập nhật geo / har tích luỹ
+        #pragma unroll
         for (int k = 0; k < num_applicable_strategy; ++k) {
             const double avg_p = invest_count[k] ?
                                  tmp_profit[k] / (double)invest_count[k] :
@@ -102,6 +106,7 @@ void _M_investMethod(
         // Lưu kết quả nếu cycle nằm trong vùng cần ghi
         if (cycle_idx <= num_cycle_result && threshold_cycle_idx + 1 >= cycle_idx) {
             const int segment = num_cycle_result - cycle_idx;
+            #pragma unroll
             for (int k = 0; k < num_applicable_strategy; ++k) {
                 const int n   = index_size - 1 - cycle_idx - k;
                 const int idx = 2 * (segment * num_strategy + k);
