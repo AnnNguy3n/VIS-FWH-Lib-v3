@@ -61,6 +61,14 @@ Multi_investMethod::Multi_investMethod(string config_path)
     // Cấp phát host
     h_final = new double[final_size];
     h_check_save = new int[check_size];
+
+    //
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);  // device 0
+
+    printf("Max dynamic shared memory per block: %d bytes (%.1f KB)\n",
+        prop.sharedMemPerBlockOptin,
+        prop.sharedMemPerBlockOptin / 1024.0);
 }
 
 
