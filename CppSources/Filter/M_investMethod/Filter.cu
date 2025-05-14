@@ -84,7 +84,6 @@ bool Multi_investMethod::compute_result(bool force_save){
     int num_threshold = __NUM_THRESHOLD_PER_CYCLE__ * (index_length - 2);
     int num_cycle     = config.num_cycle;
     int num_strategy  = config.num_strategy;
-    int array_length  = rows;
 
     dim3 threads(256);
 

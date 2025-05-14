@@ -3,7 +3,7 @@ import pandas as pd
 
 filter_fields = {
     "M_investMethod": {
-        "command": "DYT_filter_"
+        "command": "MIM_filter_"
     }
 }
 

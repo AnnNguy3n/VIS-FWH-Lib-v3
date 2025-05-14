@@ -2,6 +2,7 @@ import sys
 import sqlite3
 import numpy as np
 import os
+import time
 
 def process_and_insert(db_path: str, num_cycle: int, fml_shape: int, num_field: int, num_column: int):
     folder = os.path.dirname(db_path)
@@ -68,4 +69,6 @@ if __name__ == "__main__":
     num_field = int(sys.argv[4])
     num_column = int(sys.argv[5])
 
+    a = time.time()
     process_and_insert(db_path, num_cycle, fml_shape, num_field, num_column)
+    print("Insert Time:", time.time() - a)
