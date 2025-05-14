@@ -9,9 +9,6 @@ const int __NUM_THRESHOLD_PER_CYCLE__ = 10;
 #endif
 
 
-const int __MAX_STRATEGY__ = 16;
-
-
 __device__ __forceinline__
 void _M_investMethod(
     const double* __restrict__ weight,                // length = array_length
@@ -21,10 +18,10 @@ void _M_investMethod(
     const int*    __restrict__ sufficient_liquidity,  // length = array_length
 
           double* __restrict__ result,                // length = 2·num_cycle_result·num_strategy
-        //   double* __restrict__ tmp_profit,            // length = num_strategy
-        //   double* __restrict__ tmp_geomean,           // length = num_strategy
-        //   double* __restrict__ tmp_harmean,           // length = num_strategy
-        //   int*    __restrict__ invest_count,          // length = num_strategy
+          double* __restrict__ tmp_profit,            // length = num_strategy
+          double* __restrict__ tmp_geomean,           // length = num_strategy
+          double* __restrict__ tmp_harmean,           // length = num_strategy
+          int*    __restrict__ invest_count,          // length = num_strategy
           int*    __restrict__ symbol_streak,         // length = num_symbol_unique
 
     const double threshold,
@@ -35,12 +32,6 @@ void _M_investMethod(
     const int    num_symbol_unique,
     const int    num_strategy
 ) {
-    //
-    double tmp_profit[__MAX_STRATEGY__];
-    double tmp_geomean[__MAX_STRATEGY__];
-    double tmp_harmean[__MAX_STRATEGY__];
-    int invest_count[__MAX_STRATEGY__];
-
     // Khởi tạo
     int market_streak = 0;
 
@@ -68,25 +59,22 @@ void _M_investMethod(
 
         // Duyệt qua tất cả công ty trong chu kỳ hiện tại
         for (int i = start; i < end; ++i) {
-            const double w = weight[i];
-            const int sym = symbol[i];
-            if (w <= threshold) { // Không vượt ngưỡng
-                symbol_streak[sym] = 0;
+            if (weight[i] <= threshold) { // Không vượt ngưỡng
+                symbol_streak[symbol[i]] = 0;
                 continue;
             }
 
             any_pass_threshold = true;
+            const int sym = symbol[i];
             const int sym_streak = ++symbol_streak[sym];
 
-            const int lig = sufficient_liquidity[i];
-            if (!lig) continue;
+            if (!sufficient_liquidity[i]) continue;
 
             const double p = profit[i];
 
             // Update cho từng strategy k (tương ứng độ dài streak yêu cầu)
-            #pragma unroll
             for (int k = 0; k < num_applicable_strategy; ++k) {
-                if (sym_streak > (market_streak < k ? market_streak : k)) {
+                if (sym_streak > min(market_streak, k)) {
                     tmp_profit[k] += p;
                     ++invest_count[k];
                 }
@@ -94,7 +82,6 @@ void _M_investMethod(
         }
 
         // Cập nhật geo / har tích luỹ
-        #pragma unroll
         for (int k = 0; k < num_applicable_strategy; ++k) {
             const double avg_p = invest_count[k] ?
                                  tmp_profit[k] / (double)invest_count[k] :
@@ -106,7 +93,6 @@ void _M_investMethod(
         // Lưu kết quả nếu cycle nằm trong vùng cần ghi
         if (cycle_idx <= num_cycle_result && threshold_cycle_idx + 1 >= cycle_idx) {
             const int segment = num_cycle_result - cycle_idx;
-            #pragma unroll
             for (int k = 0; k < num_applicable_strategy; ++k) {
                 const int n   = index_size - 1 - cycle_idx - k;
                 const int idx = 2 * (segment * num_strategy + k);
@@ -131,10 +117,10 @@ __global__ void M_investMethod(
     const int*    __restrict__ sufficient_liquidity,    // array_length
 
           double* __restrict__ N_result,                // num_kernel × 2·num_cycle_result·num_strategy
-        //   double* __restrict__ N_tmp_profit,            // num_kernel × num_strategy
-        //   double* __restrict__ N_tmp_geomean,           // num_kernel × num_strategy
-        //   double* __restrict__ N_tmp_harmean,           // num_kernel × num_strategy
-        //   int*    __restrict__ N_invest_count,          // num_kernel × num_strategy
+          double* __restrict__ N_tmp_profit,            // num_kernel × num_strategy
+          double* __restrict__ N_tmp_geomean,           // num_kernel × num_strategy
+          double* __restrict__ N_tmp_harmean,           // num_kernel × num_strategy
+          int*    __restrict__ N_invest_count,          // num_kernel × num_strategy
           int*    __restrict__ N_symbol_streak,         // num_kernel × num_symbol_unique
 
     const double interest,
@@ -161,17 +147,17 @@ __global__ void M_investMethod(
     double* result_ptr     = N_result +
         (size_t)tid * 2 * num_cycle_result * num_strategy;
 
-    // double* tmp_profit_ptr = N_tmp_profit    + (size_t)tid * num_strategy;
-    // double* tmp_geo_ptr    = N_tmp_geomean   + (size_t)tid * num_strategy;
-    // double* tmp_har_ptr    = N_tmp_harmean   + (size_t)tid * num_strategy;
-    // int*    icount_ptr     = N_invest_count  + (size_t)tid * num_strategy;
+    double* tmp_profit_ptr = N_tmp_profit    + (size_t)tid * num_strategy;
+    double* tmp_geo_ptr    = N_tmp_geomean   + (size_t)tid * num_strategy;
+    double* tmp_har_ptr    = N_tmp_harmean   + (size_t)tid * num_strategy;
+    int*    icount_ptr     = N_invest_count  + (size_t)tid * num_strategy;
     int*    streak_ptr     = N_symbol_streak + (size_t)tid * num_symbol_unique;
 
     const int threshold_cycle_idx = thr_idx / __NUM_THRESHOLD_PER_CYCLE__;
 
     _M_investMethod(
         weight_ptr, profit, index, symbol, sufficient_liquidity,
-        result_ptr, streak_ptr,
+        result_ptr, tmp_profit_ptr, tmp_geo_ptr, tmp_har_ptr, icount_ptr, streak_ptr,
         threshold_val, interest, threshold_cycle_idx,
         index_size, num_cycle_result, num_symbol_unique, num_strategy
     );
