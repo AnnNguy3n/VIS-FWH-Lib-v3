@@ -86,7 +86,7 @@ bool Multi_investMethod::compute_result(bool force_save){
     int num_strategy  = config.num_strategy;
     int array_length  = rows;
 
-    dim3 threads(32);
+    dim3 threads(16);
 
     // 1. Sinh threshold cho từng (array, cycle) → d_threshold
     int num_fill = num_array * (index_length - 2);  // = số cycle áp dụng
