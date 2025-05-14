@@ -16,7 +16,7 @@ def run_worker(lib_abs_path, generate_method, filter_name, worker_type, config_p
     """
     time.sleep(wait_before_run)
 
-    command = f"{lib_abs_path}ExeFile/"
+    command = f"ncu --set full {lib_abs_path}ExeFile/"
     command += suppFunc.generate_method[generate_method]["command"]
     command += suppFunc.filter_fields[filter_name]["command"]
 
