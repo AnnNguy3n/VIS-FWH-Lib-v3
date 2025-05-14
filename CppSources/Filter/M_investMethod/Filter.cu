@@ -152,8 +152,18 @@ bool Multi_investMethod::compute_result(bool force_save){
         num_array,
         num_threshold
     );
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "[ERROR] Kernel launch failed: %s\n", cudaGetErrorString(err));
+    }
+
     cudaEventRecord(ev_invest_stop);
     cudaEventSynchronize(ev_invest_stop);
+
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "[ERROR] Kernel runtime error: %s\n", cudaGetErrorString(err));
+    }
 
     float ms_invest = 0;
     cudaEventElapsedTime(&ms_invest, ev_invest_start, ev_invest_stop);
