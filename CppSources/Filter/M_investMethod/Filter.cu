@@ -69,6 +69,12 @@ Multi_investMethod::Multi_investMethod(string config_path)
     printf("Max dynamic shared memory per block: %d bytes (%.1f KB)\n",
         prop.sharedMemPerBlockOptin,
         prop.sharedMemPerBlockOptin / 1024.0);
+    //
+    cudaFuncSetAttribute(
+        M_investMethod,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
+        98304
+    );
 }
 
 
