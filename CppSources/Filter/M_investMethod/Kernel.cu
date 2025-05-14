@@ -121,7 +121,7 @@ __global__ void M_investMethod(
           double* __restrict__ N_tmp_geomean,           // num_kernel × num_strategy
           double* __restrict__ N_tmp_harmean,           // num_kernel × num_strategy
           int*    __restrict__ N_invest_count,          // num_kernel × num_strategy
-          int*    __restrict__ N_symbol_streak,         // num_kernel × num_symbol_unique
+        //   int*    __restrict__ N_symbol_streak,         // num_kernel × num_symbol_unique
 
     const double interest,
     const int    index_size,
@@ -151,7 +151,11 @@ __global__ void M_investMethod(
     double* tmp_geo_ptr    = N_tmp_geomean   + (size_t)tid * num_strategy;
     double* tmp_har_ptr    = N_tmp_harmean   + (size_t)tid * num_strategy;
     int*    icount_ptr     = N_invest_count  + (size_t)tid * num_strategy;
-    int*    streak_ptr     = N_symbol_streak + (size_t)tid * num_symbol_unique;
+    // int*    streak_ptr     = N_symbol_streak + (size_t)tid * num_symbol_unique;
+
+    // Shared memory cho symbol_streak
+    extern __shared__ int shared_streak[];
+    int* streak_ptr = &shared_streak[threadIdx.x * num_symbol_unique];
 
     const int threshold_cycle_idx = thr_idx / __NUM_THRESHOLD_PER_CYCLE__;
 

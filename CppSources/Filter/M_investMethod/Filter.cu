@@ -86,7 +86,7 @@ bool Multi_investMethod::compute_result(bool force_save){
     int num_strategy  = config.num_strategy;
     int array_length  = rows;
 
-    dim3 threads(256);
+    dim3 threads(32);
 
     // 1. Sinh threshold cho từng (array, cycle) → d_threshold
     int num_fill = num_array * (index_length - 2);  // = số cycle áp dụng
@@ -113,12 +113,16 @@ bool Multi_investMethod::compute_result(bool force_save){
     // 2. Chạy kernel đầu tư song song trên (array × threshold)
     int total_threads = num_array * num_threshold;
     int blocks_invest = (total_threads + threads.x - 1) / threads.x;
+    // Tính dung lượng shared memory
+    int shared_mem_bytes = threads.x * num_symbol_unique * sizeof(int);
+
+
     cudaEvent_t ev_invest_start, ev_invest_stop;
     cudaEventCreate(&ev_invest_start);
     cudaEventCreate(&ev_invest_stop);
 
     cudaEventRecord(ev_invest_start);
-    M_investMethod<<<blocks_invest, threads>>>(
+    M_investMethod<<<blocks_invest, threads, shared_mem_bytes>>>(
         temp_weight_storage,
         d_threshold,
         PROFIT,
@@ -131,7 +135,7 @@ bool Multi_investMethod::compute_result(bool force_save){
         d_tmp_geomean,
         d_tmp_harmean,
         d_invest_count,
-        d_symbol_streak,
+        // d_symbol_streak,
 
         config.interest,
         index_length,
