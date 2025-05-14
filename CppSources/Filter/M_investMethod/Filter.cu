@@ -90,15 +90,33 @@ bool Multi_investMethod::compute_result(bool force_save){
     // 1. Sinh threshold cho từng (array, cycle) → d_threshold
     int num_fill = num_array * (index_length - 2);  // = số cycle áp dụng
     int blocks_fill = (num_fill + threads.x - 1) / threads.x;
+    cudaEvent_t ev_fill_start, ev_fill_stop;
+    cudaEventCreate(&ev_fill_start);
+    cudaEventCreate(&ev_fill_stop);
+
+    cudaEventRecord(ev_fill_start);
     fill_thresholds<<<blocks_fill, threads>>>(
         temp_weight_storage, d_threshold,
         INDEX, index_length, num_array
     );
-    cudaDeviceSynchronize();
+    cudaEventRecord(ev_fill_stop);
+    cudaEventSynchronize(ev_fill_stop);
+
+    float ms_fill = 0;
+    cudaEventElapsedTime(&ms_fill, ev_fill_start, ev_fill_stop);
+    printf("[fill_thresholds] %.3f ms\n", ms_fill);
+
+    cudaEventDestroy(ev_fill_start);
+    cudaEventDestroy(ev_fill_stop);
 
     // 2. Chạy kernel đầu tư song song trên (array × threshold)
     int total_threads = num_array * num_threshold;
     int blocks_invest = (total_threads + threads.x - 1) / threads.x;
+    cudaEvent_t ev_invest_start, ev_invest_stop;
+    cudaEventCreate(&ev_invest_start);
+    cudaEventCreate(&ev_invest_stop);
+
+    cudaEventRecord(ev_invest_start);
     M_investMethod<<<blocks_invest, threads>>>(
         temp_weight_storage,
         d_threshold,
@@ -122,12 +140,25 @@ bool Multi_investMethod::compute_result(bool force_save){
         num_array,
         num_threshold
     );
-    cudaDeviceSynchronize();
+    cudaEventRecord(ev_invest_stop);
+    cudaEventSynchronize(ev_invest_stop);
+
+    float ms_invest = 0;
+    cudaEventElapsedTime(&ms_invest, ev_invest_start, ev_invest_stop);
+    printf("[M_investMethod] %.3f ms\n", ms_invest);
+
+    cudaEventDestroy(ev_invest_start);
+    cudaEventDestroy(ev_invest_stop);
 
     // 3. Tìm threshold tối ưu (geo + har) → d_final
     int final_threads = num_array * num_cycle * num_strategy;
     int blocks_final = (final_threads + threads.x - 1) / threads.x;
 
+    cudaEvent_t ev_find_start, ev_find_stop;
+    cudaEventCreate(&ev_find_start);
+    cudaEventCreate(&ev_find_stop);
+
+    cudaEventRecord(ev_find_start);
     find_best_results<<<blocks_final, threads>>>(
         d_result,
         d_threshold,
@@ -137,7 +168,15 @@ bool Multi_investMethod::compute_result(bool force_save){
         num_cycle,
         num_strategy
     );
-    cudaDeviceSynchronize();
+    cudaEventRecord(ev_find_stop);
+    cudaEventSynchronize(ev_find_stop);
+
+    float ms_find = 0;
+    cudaEventElapsedTime(&ms_find, ev_find_start, ev_find_stop);
+    printf("[find_best_results] %.3f ms\n", ms_find);
+
+    cudaEventDestroy(ev_find_start);
+    cudaEventDestroy(ev_find_stop);
 
     // 4. Copy kết quả từ device về host
     size_t final_size = static_cast<size_t>(num_array) * num_cycle * num_strategy * 4;
@@ -147,6 +186,11 @@ bool Multi_investMethod::compute_result(bool force_save){
     dim3 blocks_check(count_temp_storage);       // mỗi block xử lý 1 array
     dim3 threads_check(config.num_cycle);        // mỗi thread xử lý 1 cycle
 
+    cudaEvent_t ev_mark_start, ev_mark_stop;
+    cudaEventCreate(&ev_mark_start);
+    cudaEventCreate(&ev_mark_stop);
+
+    cudaEventRecord(ev_mark_start);
     mark_check_save_from_final<<<blocks_check, threads_check>>>(
         d_final,
         d_check_save,
@@ -155,7 +199,15 @@ bool Multi_investMethod::compute_result(bool force_save){
         config.num_strategy,
         config.eval_threshold
     );
-    cudaDeviceSynchronize();
+    cudaEventRecord(ev_mark_stop);
+    cudaEventSynchronize(ev_mark_stop);
+
+    float ms_mark = 0;
+    cudaEventElapsedTime(&ms_mark, ev_mark_start, ev_mark_stop);
+    printf("[mark_check_save] %.3f ms\n", ms_mark);
+
+    cudaEventDestroy(ev_mark_start);
+    cudaEventDestroy(ev_mark_stop);
 
     // 6. Copy
     cudaMemcpy(h_check_save, d_check_save, sizeof(int) * count_temp_storage * config.num_cycle, cudaMemcpyDeviceToHost);
