@@ -127,10 +127,10 @@ bool Multi_investMethod::compute_result(bool force_save){
         BOOL_ARG,
 
         d_result,                        // N_result
-        // d_tmp_profit,                    // các buffer phụ đã malloc
-        // d_tmp_geomean,
-        // d_tmp_harmean,
-        // d_invest_count,
+        d_tmp_profit,                    // các buffer phụ đã malloc
+        d_tmp_geomean,
+        d_tmp_harmean,
+        d_invest_count,
         d_symbol_streak,
 
         config.interest,
