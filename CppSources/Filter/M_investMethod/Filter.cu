@@ -75,6 +75,13 @@ Multi_investMethod::Multi_investMethod(string config_path)
     //     cudaFuncAttributeMaxDynamicSharedMemorySize,
     //     98304
     // );
+
+    //
+    cudaMemcpyToSymbol(index_size, &index_length, 4);
+    cudaMemcpyToSymbol(num_cycle_result, &config.num_cycle, 4);
+    cudaMemcpyToSymbol(__num_symbol_unique__, &num_symbol_unique, 4);
+    cudaMemcpyToSymbol(num_strategy, &config.num_strategy, 4);
+    cudaMemcpyToSymbol(interest, &config.interest, 8);
 }
 
 
@@ -140,7 +147,7 @@ bool Multi_investMethod::compute_result(bool force_save){
         temp_weight_storage,
         d_threshold,
         PROFIT,
-        INDEX,
+        // INDEX,
         SYMBOL,
         BOOL_ARG,
 
@@ -151,11 +158,11 @@ bool Multi_investMethod::compute_result(bool force_save){
         // d_invest_count,
         // d_symbol_streak,
 
-        config.interest,
-        index_length,
-        num_cycle,
-        num_symbol_unique,
-        num_strategy,
+        // config.interest,
+        // index_length,
+        // num_cycle,
+        // num_symbol_unique,
+        // num_strategy,
         num_array,
         num_threshold
     );

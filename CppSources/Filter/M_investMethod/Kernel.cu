@@ -11,11 +11,20 @@ const int __NUM_THRESHOLD_PER_CYCLE__ = 10;
 #endif
 
 
+__constant__ int C_INDEX[256];
+
+__constant__ int    index_size;
+__constant__ int    num_cycle_result;
+__constant__ int    __num_symbol_unique__;
+__constant__ int    num_strategy;
+__constant__ double interest;
+
+
 __device__ __forceinline__
 void _M_investMethod(
     const double* __restrict__ weight,                // length = array_length
     const double* __restrict__ profit,                // length = array_length
-    const int*    __restrict__ index,                 // length = index_size
+    // const int*    __restrict__ index,                 // length = index_size
     const int*    __restrict__ symbol,                // length = array_length
     const int*    __restrict__ sufficient_liquidity,  // length = array_length
 
@@ -27,17 +36,14 @@ void _M_investMethod(
           uint8_t*    __restrict__ symbol_streak,         // length = num_symbol_unique
 
     const double threshold,
-    const double interest,
-    const int    threshold_cycle_idx,                 // = x / __NUM_THRESHOLD_PER_CYCLE__
-    const int    index_size,
-    const int    num_cycle_result,
-    const int    num_symbol_unique,
-    const int    num_strategy
+    // const double interest,
+    const int    threshold_cycle_idx                 // = x / __NUM_THRESHOLD_PER_CYCLE__
+    
 ) {
     // Khởi tạo
     int market_streak = 0;
 
-    for (int i = 0; i < num_symbol_unique; ++i) symbol_streak[i] = 0;
+    for (int i = 0; i < __num_symbol_unique__; ++i) symbol_streak[i] = 0;
     for (int i = 0; i < num_strategy;      ++i) {
         tmp_geomean[i] = 0.0;
         tmp_harmean[i] = 0.0;
@@ -45,8 +51,8 @@ void _M_investMethod(
 
     // Duyệt ngược qua từng chu kỳ (bỏ qua chu kỳ gần nhất – “index_size‑1”)
     for (int cycle_idx = index_size - 2; cycle_idx >= 1; --cycle_idx) {
-        const int start = index[cycle_idx];
-        const int end   = index[cycle_idx + 1];
+        const int start = C_INDEX[cycle_idx];
+        const int end   = C_INDEX[cycle_idx + 1];
 
         // Reset bộ đếm đầu tư cho chu kỳ hiện tại
         for (int k = 0; k < num_strategy; ++k) {
@@ -115,7 +121,7 @@ __global__ void M_investMethod(
     const double* __restrict__ N_weight,                // num_array · array_length
     const double* __restrict__ N_threshold,             // num_array · num_threshold_per_array = num_kernel
     const double* __restrict__ profit,                  // array_length
-    const int*    __restrict__ index,                   // index_size
+    // const int*    __restrict__ index,                   // index_size
     const int*    __restrict__ symbol,                  // array_length
     const int*    __restrict__ sufficient_liquidity,    // array_length
 
@@ -126,11 +132,11 @@ __global__ void M_investMethod(
         //   int*    __restrict__ N_invest_count,          // num_kernel × num_strategy
         //   int*    __restrict__ N_symbol_streak,         // num_kernel × num_symbol_unique
 
-    const double interest,
-    const int    index_size,
-    const int    num_cycle_result,
-    const int    num_symbol_unique,
-    const int    num_strategy,
+    // const double interest,
+    // const int    index_size,
+    // const int    num_cycle_result,
+    // const int    num_symbol_unique,
+    // const int    num_strategy,
     const int    num_array,
     const int    num_threshold_per_array
 ) {
@@ -141,7 +147,7 @@ __global__ void M_investMethod(
     const int thr_idx   =  tid % num_threshold_per_array;   // x
     const int array_idx =  tid / num_threshold_per_array;   // y
 
-    const int array_length = index[index_size - 1];
+    const int array_length = C_INDEX[index_size - 1];
 
     // Pointers/offsets dành riêng cho thread hiện tại
     const double* weight_ptr    = N_weight + (size_t)array_idx * array_length;
@@ -158,9 +164,9 @@ __global__ void M_investMethod(
 
     // Shared memory cho symbol_streak
     extern __shared__ uint8_t shared_streak[];
-    uint8_t* streak_ptr = &shared_streak[threadIdx.x * num_symbol_unique];
+    uint8_t* streak_ptr = &shared_streak[threadIdx.x * __num_symbol_unique__];
 
-    float* N_tmp_profit = reinterpret_cast<float*>(&shared_streak[blockDim.x * num_symbol_unique]);
+    float* N_tmp_profit = reinterpret_cast<float*>(&shared_streak[blockDim.x * __num_symbol_unique__]);
     float* tmp_profit_ptr = &N_tmp_profit[threadIdx.x * num_strategy];
 
     float* N_tmp_geomean = reinterpret_cast<float*>(&N_tmp_profit[blockDim.x * num_strategy]);
@@ -175,10 +181,9 @@ __global__ void M_investMethod(
     const int threshold_cycle_idx = thr_idx / __NUM_THRESHOLD_PER_CYCLE__;
 
     _M_investMethod(
-        weight_ptr, profit, index, symbol, sufficient_liquidity,
+        weight_ptr, profit, symbol, sufficient_liquidity,
         result_ptr, tmp_profit_ptr, tmp_geo_ptr, tmp_har_ptr, icount_ptr, streak_ptr,
-        threshold_val, interest, threshold_cycle_idx,
-        index_size, num_cycle_result, num_symbol_unique, num_strategy
+        threshold_val, threshold_cycle_idx
     );
 }
 

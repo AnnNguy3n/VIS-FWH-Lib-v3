@@ -70,6 +70,8 @@ Generator::Generator(string config_path){
     read_binary_file_1d(_PROFIT, rows, config.folder_save + "/InputData/PROFIT.bin");
     read_binary_file_2d(_OPERAND, cols, rows, config.folder_save + "/InputData/OPERAND.bin");
 
+    cudaMemcpyToSymbol(C_INDEX, _INDEX, index_length * 4, 0);
+
     cudaMalloc((void**)&INDEX, 4*index_length);
     cudaMalloc((void**)&SYMBOL, 4*rows);
     cudaMalloc((void**)&BOOL_ARG, 4*rows);
