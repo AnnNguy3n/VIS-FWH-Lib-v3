@@ -67,14 +67,14 @@ Multi_investMethod::Multi_investMethod(string config_path)
     cudaGetDeviceProperties(&prop, 0);  // device 0
 
     printf("Max dynamic shared memory per block: %d bytes (%.1f KB)\n",
-        prop.sharedMemPerBlockOptin,
-        prop.sharedMemPerBlockOptin / 1024.0);
+        prop.sharedMemPerBlock,
+        prop.sharedMemPerBlock / 1024.0);
     //
-    cudaFuncSetAttribute(
-        M_investMethod,
-        cudaFuncAttributeMaxDynamicSharedMemorySize,
-        98304
-    );
+    // cudaFuncSetAttribute(
+    //     M_investMethod,
+    //     cudaFuncAttributeMaxDynamicSharedMemorySize,
+    //     98304
+    // );
 }
 
 
@@ -99,7 +99,7 @@ bool Multi_investMethod::compute_result(bool force_save){
     int num_cycle     = config.num_cycle;
     int num_strategy  = config.num_strategy;
 
-    dim3 threads(16);
+    dim3 threads(32);
 
     // 1. Sinh threshold cho từng (array, cycle) → d_threshold
     int num_fill = num_array * (index_length - 2);  // = số cycle áp dụng
@@ -127,7 +127,8 @@ bool Multi_investMethod::compute_result(bool force_save){
     int total_threads = num_array * num_threshold;
     int blocks_invest = (total_threads + threads.x - 1) / threads.x;
     // Tính dung lượng shared memory
-    int shared_mem_bytes = threads.x * num_symbol_unique * sizeof(int);
+    int shared_mem_bytes = threads.x * (num_symbol_unique + 16*num_strategy);
+    cout << shared_mem_bytes << " ahsdiahsdashdjkahsdjkahsdkjhaskdas" << endl;
 
 
     cudaEvent_t ev_invest_start, ev_invest_stop;
@@ -144,10 +145,10 @@ bool Multi_investMethod::compute_result(bool force_save){
         BOOL_ARG,
 
         d_result,                        // N_result
-        d_tmp_profit,                    // các buffer phụ đã malloc
-        d_tmp_geomean,
-        d_tmp_harmean,
-        d_invest_count,
+        // d_tmp_profit,                    // các buffer phụ đã malloc
+        // d_tmp_geomean,
+        // d_tmp_harmean,
+        // d_invest_count,
         // d_symbol_streak,
 
         config.interest,
@@ -227,6 +228,11 @@ bool Multi_investMethod::compute_result(bool force_save){
         config.num_strategy,
         config.eval_threshold
     );
+    cudaError_t err2 = cudaGetLastError();
+    if (err2 != cudaSuccess) {
+        fprintf(stderr, "[ERROR] Kernel launch failed: %s\n", cudaGetErrorString(err2));
+    }
+
     cudaEventRecord(ev_mark_stop);
     cudaEventSynchronize(ev_mark_stop);
 

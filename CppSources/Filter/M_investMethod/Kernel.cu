@@ -3,6 +3,8 @@
 #include <device_launch_parameters.h>
 #include <cfloat>
 
+const float test = FLT_MAX;
+
 #ifndef _NUM_THRESHOLD_PER_CYCLE_
 #define _NUM_THRESHOLD_PER_CYCLE_
 const int __NUM_THRESHOLD_PER_CYCLE__ = 10;
@@ -18,11 +20,11 @@ void _M_investMethod(
     const int*    __restrict__ sufficient_liquidity,  // length = array_length
 
           double* __restrict__ result,                // length = 2·num_cycle_result·num_strategy
-          double* __restrict__ tmp_profit,            // length = num_strategy
-          double* __restrict__ tmp_geomean,           // length = num_strategy
-          double* __restrict__ tmp_harmean,           // length = num_strategy
+          float* __restrict__ tmp_profit,            // length = num_strategy
+          float* __restrict__ tmp_geomean,           // length = num_strategy
+          float* __restrict__ tmp_harmean,           // length = num_strategy
           int*    __restrict__ invest_count,          // length = num_strategy
-          int*    __restrict__ symbol_streak,         // length = num_symbol_unique
+          uint8_t*    __restrict__ symbol_streak,         // length = num_symbol_unique
 
     const double threshold,
     const double interest,
@@ -97,8 +99,9 @@ void _M_investMethod(
                 const int n   = index_size - 1 - cycle_idx - k;
                 const int idx = 2 * (segment * num_strategy + k);
 
-                result[idx    ] = exp(tmp_geomean[k] / (double)n);  // geo‑mean
-                result[idx + 1] = (double)n / tmp_harmean[k];       // har‑mean
+                // result[idx    ] = exp(tmp_geomean[k] / (double)n);  // geo‑mean
+                // result[idx + 1] = (double)n / tmp_harmean[k];       // har‑mean
+                reinterpret_cast<double2*>(&result[idx])[0] = make_double2(exp(tmp_geomean[k] / (double)n), (double)n / tmp_harmean[k]);
             }
         }
 
@@ -117,10 +120,10 @@ __global__ void M_investMethod(
     const int*    __restrict__ sufficient_liquidity,    // array_length
 
           double* __restrict__ N_result,                // num_kernel × 2·num_cycle_result·num_strategy
-          double* __restrict__ N_tmp_profit,            // num_kernel × num_strategy
-          double* __restrict__ N_tmp_geomean,           // num_kernel × num_strategy
-          double* __restrict__ N_tmp_harmean,           // num_kernel × num_strategy
-          int*    __restrict__ N_invest_count,          // num_kernel × num_strategy
+        //   double* __restrict__ N_tmp_profit,            // num_kernel × num_strategy
+        //   double* __restrict__ N_tmp_geomean,           // num_kernel × num_strategy
+        //   double* __restrict__ N_tmp_harmean,           // num_kernel × num_strategy
+        //   int*    __restrict__ N_invest_count,          // num_kernel × num_strategy
         //   int*    __restrict__ N_symbol_streak,         // num_kernel × num_symbol_unique
 
     const double interest,
@@ -147,15 +150,27 @@ __global__ void M_investMethod(
     double* result_ptr     = N_result +
         (size_t)tid * 2 * num_cycle_result * num_strategy;
 
-    double* tmp_profit_ptr = N_tmp_profit    + (size_t)tid * num_strategy;
-    double* tmp_geo_ptr    = N_tmp_geomean   + (size_t)tid * num_strategy;
-    double* tmp_har_ptr    = N_tmp_harmean   + (size_t)tid * num_strategy;
-    int*    icount_ptr     = N_invest_count  + (size_t)tid * num_strategy;
+    // double* tmp_profit_ptr = N_tmp_profit    + (size_t)tid * num_strategy;
+    // double* tmp_geo_ptr    = N_tmp_geomean   + (size_t)tid * num_strategy;
+    // double* tmp_har_ptr    = N_tmp_harmean   + (size_t)tid * num_strategy;
+    // int*    icount_ptr     = N_invest_count  + (size_t)tid * num_strategy;
     // int*    streak_ptr     = N_symbol_streak + (size_t)tid * num_symbol_unique;
 
     // Shared memory cho symbol_streak
-    extern __shared__ int shared_streak[];
-    int* streak_ptr = &shared_streak[threadIdx.x * num_symbol_unique];
+    extern __shared__ uint8_t shared_streak[];
+    uint8_t* streak_ptr = &shared_streak[threadIdx.x * num_symbol_unique];
+
+    float* N_tmp_profit = reinterpret_cast<float*>(&shared_streak[blockDim.x * num_symbol_unique]);
+    float* tmp_profit_ptr = &N_tmp_profit[threadIdx.x * num_strategy];
+
+    float* N_tmp_geomean = reinterpret_cast<float*>(&N_tmp_profit[blockDim.x * num_strategy]);
+    float* tmp_geo_ptr = &N_tmp_geomean[threadIdx.x * num_strategy];
+
+    float* N_tmp_harmean = reinterpret_cast<float*>(&N_tmp_geomean[blockDim.x * num_strategy]);
+    float* tmp_har_ptr = &N_tmp_harmean[threadIdx.x * num_strategy];
+
+    int* N_invest_count = reinterpret_cast<int*>(&N_tmp_harmean[blockDim.x * num_strategy]);
+    int* icount_ptr = &N_invest_count[threadIdx.x * num_strategy];
 
     const int threshold_cycle_idx = thr_idx / __NUM_THRESHOLD_PER_CYCLE__;
 
